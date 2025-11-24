@@ -1,54 +1,84 @@
 package org.example.apirest.service;
 
-import jakarta.transaction.Transactional;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.example.apirest.entity.Organizador;
+import org.example.apirest.exception.DuplicateResourceException;
+import org.example.apirest.exception.ResourceNotFoundException;
 import org.example.apirest.repository.OrganizadorRepository;
-import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
-import java.util.Optional;
 
+@Slf4j
 @Service
-@Transactional
+@RequiredArgsConstructor
 public class OrganizadorService {
 
-    @Autowired
-    private OrganizadorRepository organizadorRepository;
+    private final OrganizadorRepository organizadorRepository;
 
+    @Transactional(readOnly = true)
     public List<Organizador> findAll() {
+        log.debug("Buscando todos los organizadores");
         return organizadorRepository.findAll();
     }
 
-    public Optional<Organizador> findById(Long id) {
-        return organizadorRepository.findById(id);
+    @Transactional(readOnly = true)
+    public Page<Organizador> findAll(Pageable pageable) {
+        log.debug("Buscando organizadores con paginación: {}", pageable);
+        return organizadorRepository.findAll(pageable);
     }
 
+    @Transactional(readOnly = true)
+    public Organizador findById(Long id) {
+        log.debug("Buscando organizador con id: {}", id);
+        return organizadorRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Organizador", "id", id));
+    }
+
+    @Transactional
     public Organizador save(Organizador organizador) {
+        log.debug("Guardando nuevo organizador: {}", organizador.getEmail());
+        validateEmailNotExists(organizador.getEmail(), null);
         return organizadorRepository.save(organizador);
     }
 
-    public Optional<Organizador> update(Long id, Organizador organizadorDetails) {
-        return organizadorRepository.findById(id).map(organizador -> {
-            organizador.setNombre(organizadorDetails.getNombre());
-            organizador.setEmail(organizadorDetails.getEmail());
-            organizador.setTelefono(organizadorDetails.getTelefono());
-            return organizadorRepository.save(organizador);
-        });
+    @Transactional
+    public Organizador update(Long id, Organizador organizador) {
+        log.debug("Actualizando organizador con id: {}", id);
+        Organizador existingOrganizador = findById(id);
+        validateEmailNotExists(organizador.getEmail(), id);
+
+        existingOrganizador.setNombre(organizador.getNombre());
+        existingOrganizador.setEmail(organizador.getEmail());
+        existingOrganizador.setTelefono(organizador.getTelefono());
+
+        return organizadorRepository.save(existingOrganizador);
     }
 
-    public boolean delete(Long id) {
-        return organizadorRepository.findById(id).map(organizador -> {
-            organizadorRepository.delete(organizador);
-            return true;
-        }).orElse(false);
+    @Transactional
+    public void deleteById(Long id) {
+        log.debug("Eliminando organizador con id: {}", id);
+        if (!organizadorRepository.existsById(id)) {
+            throw new ResourceNotFoundException("Organizador", "id", id);
+        }
+        organizadorRepository.deleteById(id);
     }
 
-    public List<Organizador> findByNombre(String nombre) {
+    @Transactional(readOnly = true)
+    public List<Organizador> searchByNombre(String nombre) {
+        log.debug("Buscando organizadores por nombre: {}", nombre);
         return organizadorRepository.findByNombreContainingIgnoreCase(nombre);
     }
 
-    public boolean emailExists(String email) {
-        return organizadorRepository.existsByEmail(email);
+    private void validateEmailNotExists(String email, Long excludeId) {
+        organizadorRepository.findByEmail(email).ifPresent(existing -> {
+            if (excludeId == null || !existing.getId().equals(excludeId)) {
+                throw new DuplicateResourceException("Organizador", "email", email);
+            }
+        });
     }
 }

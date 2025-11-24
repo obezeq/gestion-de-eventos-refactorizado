@@ -1,63 +1,70 @@
 package org.example.apirest.web;
 
 import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
+import org.example.apirest.dto.participante.ParticipanteRequestDTO;
+import org.example.apirest.dto.participante.ParticipanteResponseDTO;
+import org.example.apirest.dto.participante.ParticipanteWithEventoDTO;
+import org.example.apirest.entity.Evento;
 import org.example.apirest.entity.Participante;
+import org.example.apirest.mapper.ParticipanteMapper;
+import org.example.apirest.service.EventoService;
 import org.example.apirest.service.ParticipanteService;
-import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
-import java.util.Optional;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/v1/participantes")
+@RequiredArgsConstructor
 public class ParticipanteController {
 
-    @Autowired
-    private ParticipanteService participanteService;
+    private final ParticipanteService participanteService;
+    private final EventoService eventoService;
+    private final ParticipanteMapper participanteMapper;
 
     @GetMapping
-    public ResponseEntity<List<Participante>> list() {
-        List<Participante> participantes = participanteService.findAll();
+    public ResponseEntity<Page<ParticipanteResponseDTO>> getAllParticipantes(
+            @PageableDefault(size = 10, sort = "id") Pageable pageable) {
+        Page<ParticipanteResponseDTO> participantes = participanteService.findAll(pageable)
+                .map(participanteMapper::toResponseDTO);
         return ResponseEntity.ok(participantes);
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<Participante> findById(@PathVariable Long id) {
-        Optional<Participante> participante = participanteService.findById(id);
-
-        if (participante.isPresent()) {
-            return ResponseEntity.ok(participante.get());
-        } else {
-            return ResponseEntity.notFound().build();
-        }
+    public ResponseEntity<ParticipanteWithEventoDTO> getParticipanteById(@PathVariable Long id) {
+        Participante participante = participanteService.findById(id);
+        return ResponseEntity.ok(participanteMapper.toWithEventoDTO(participante));
     }
 
     @GetMapping("/search")
-    public ResponseEntity<List<Participante>> searchByEmail(@RequestParam String email) {
-        List<Participante> participantes = participanteService.findByEmail(email);
+    public ResponseEntity<List<ParticipanteResponseDTO>> searchParticipantesByEmail(
+            @RequestParam String email) {
+        List<ParticipanteResponseDTO> participantes = participanteService.searchByEmail(email)
+                .stream()
+                .map(participanteMapper::toResponseDTO)
+                .collect(Collectors.toList());
         return ResponseEntity.ok(participantes);
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<Participante> update(@PathVariable Long id, @Valid @RequestBody Participante participante) {
-        Optional<Participante> updatedParticipante = participanteService.update(id, participante);
-
-        if (updatedParticipante.isPresent()) {
-            return ResponseEntity.ok(updatedParticipante.get());
-        } else {
-            return ResponseEntity.notFound().build();
-        }
+    public ResponseEntity<ParticipanteResponseDTO> updateParticipante(
+            @PathVariable Long id,
+            @Valid @RequestBody ParticipanteRequestDTO requestDTO) {
+        Evento evento = eventoService.findById(requestDTO.getEventoId());
+        Participante participante = participanteMapper.toEntity(requestDTO, evento);
+        Participante updatedParticipante = participanteService.update(id, participante);
+        return ResponseEntity.ok(participanteMapper.toResponseDTO(updatedParticipante));
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> delete(@PathVariable Long id) {
-        if (participanteService.delete(id)) {
-            return ResponseEntity.noContent().build();
-        } else {
-            return ResponseEntity.notFound().build();
-        }
+    public ResponseEntity<Void> deleteParticipante(@PathVariable Long id) {
+        participanteService.deleteById(id);
+        return ResponseEntity.noContent().build();
     }
-
 }

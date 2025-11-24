@@ -1,6 +1,5 @@
 package org.example.apirest.mapper;
 
-import lombok.RequiredArgsConstructor;
 import org.example.apirest.dto.organizador.OrganizadorRequestDTO;
 import org.example.apirest.dto.organizador.OrganizadorResponseDTO;
 import org.example.apirest.dto.organizador.OrganizadorWithEventosDTO;
@@ -11,11 +10,13 @@ import org.springframework.stereotype.Component;
 import java.util.stream.Collectors;
 
 @Component
-@RequiredArgsConstructor
 public class OrganizadorMapper {
 
-    @Lazy
     private final EventoMapper eventoMapper;
+
+    public OrganizadorMapper(@Lazy EventoMapper eventoMapper) {
+        this.eventoMapper = eventoMapper;
+    }
 
     public Organizador toEntity(OrganizadorRequestDTO dto) {
         Organizador organizador = new Organizador();

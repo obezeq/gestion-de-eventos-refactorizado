@@ -1,6 +1,5 @@
 package org.example.apirest.mapper;
 
-import lombok.RequiredArgsConstructor;
 import org.example.apirest.dto.participante.ParticipanteRequestDTO;
 import org.example.apirest.dto.participante.ParticipanteResponseDTO;
 import org.example.apirest.dto.participante.ParticipanteWithEventoDTO;
@@ -10,11 +9,13 @@ import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Component;
 
 @Component
-@RequiredArgsConstructor
 public class ParticipanteMapper {
 
-    @Lazy
     private final EventoMapper eventoMapper;
+
+    public ParticipanteMapper(@Lazy EventoMapper eventoMapper) {
+        this.eventoMapper = eventoMapper;
+    }
 
     public Participante toEntity(ParticipanteRequestDTO dto, Evento evento) {
         Participante participante = new Participante();

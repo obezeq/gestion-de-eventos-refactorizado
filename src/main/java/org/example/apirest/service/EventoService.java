@@ -1,60 +1,75 @@
 package org.example.apirest.service;
 
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.example.apirest.entity.Evento;
+import org.example.apirest.exception.ResourceNotFoundException;
 import org.example.apirest.repository.EventoRepository;
-import org.example.apirest.repository.OrganizadorRepository;
-import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
-import java.util.Optional;
 
+@Slf4j
 @Service
+@RequiredArgsConstructor
 public class EventoService {
 
-    @Autowired
-    EventoRepository eventoRepository;
+    private final EventoRepository eventoRepository;
 
-    @Autowired
-    OrganizadorRepository organizadorRepository;
-
+    @Transactional(readOnly = true)
     public List<Evento> findAll() {
+        log.debug("Buscando todos los eventos");
         return eventoRepository.findAll();
     }
 
-    public Optional<Evento> findById(Long id) {
-        return eventoRepository.findById(id);
+    @Transactional(readOnly = true)
+    public Page<Evento> findAll(Pageable pageable) {
+        log.debug("Buscando eventos con paginación: {}", pageable);
+        return eventoRepository.findAll(pageable);
     }
 
+    @Transactional(readOnly = true)
+    public Evento findById(Long id) {
+        log.debug("Buscando evento con id: {}", id);
+        return eventoRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Evento", "id", id));
+    }
+
+    @Transactional
     public Evento save(Evento evento) {
+        log.debug("Guardando nuevo evento: {}", evento.getTitulo());
         return eventoRepository.save(evento);
     }
 
-    public Optional<Evento> update(Long id, Evento eventoDetails) {
-        return eventoRepository.findById(id)
-                .map(evento -> {
-                    evento.setTitulo(eventoDetails.getTitulo());
-                    evento.setDescripcion(eventoDetails.getDescripcion());
-                    evento.setFecha(eventoDetails.getFecha());
-                    evento.setUbicacion(eventoDetails.getUbicacion());
-                    if (eventoDetails.getOrganizador() != null) {
-                        evento.setOrganizador(eventoDetails.getOrganizador());
-                    }
-                    return eventoRepository.save(evento);
-                });
+    @Transactional
+    public Evento update(Long id, Evento evento) {
+        log.debug("Actualizando evento con id: {}", id);
+        Evento existingEvento = findById(id);
+
+        existingEvento.setTitulo(evento.getTitulo());
+        existingEvento.setDescripcion(evento.getDescripcion());
+        existingEvento.setFecha(evento.getFecha());
+        existingEvento.setUbicacion(evento.getUbicacion());
+        existingEvento.setOrganizador(evento.getOrganizador());
+
+        return eventoRepository.save(existingEvento);
     }
 
-    public boolean delete(Long id) {
-        return eventoRepository.findById(id)
-                .map(evento -> {
-                    eventoRepository.delete(evento);
-                    return true;
-                })
-                .orElse(false);
+    @Transactional
+    public void deleteById(Long id) {
+        log.debug("Eliminando evento con id: {}", id);
+        if (!eventoRepository.existsById(id)) {
+            throw new ResourceNotFoundException("Evento", "id", id);
+        }
+        eventoRepository.deleteById(id);
     }
 
-    public List<Evento> findByTitulo(String titulo) {
+    @Transactional(readOnly = true)
+    public List<Evento> searchByTitulo(String titulo) {
+        log.debug("Buscando eventos por título: {}", titulo);
         return eventoRepository.findByTituloContainingIgnoreCase(titulo);
     }
-
 }

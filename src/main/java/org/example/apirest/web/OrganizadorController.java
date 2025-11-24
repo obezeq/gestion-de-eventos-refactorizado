@@ -1,81 +1,87 @@
 package org.example.apirest.web;
 
 import jakarta.validation.Valid;
-import org.example.apirest.entity.Evento;
+import lombok.RequiredArgsConstructor;
+import org.example.apirest.dto.evento.EventoSummaryDTO;
+import org.example.apirest.dto.organizador.OrganizadorRequestDTO;
+import org.example.apirest.dto.organizador.OrganizadorResponseDTO;
 import org.example.apirest.entity.Organizador;
+import org.example.apirest.mapper.EventoMapper;
+import org.example.apirest.mapper.OrganizadorMapper;
 import org.example.apirest.service.OrganizadorService;
-import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
-import java.util.Optional;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/v1/organizadores")
+@RequiredArgsConstructor
 public class OrganizadorController {
 
-    @Autowired
-    private OrganizadorService organizadorService;
+    private final OrganizadorService organizadorService;
+    private final OrganizadorMapper organizadorMapper;
+    private final EventoMapper eventoMapper;
 
     @GetMapping
-    public ResponseEntity<List<Organizador>> list() {
-        List<Organizador> organizadores = organizadorService.findAll();
+    public ResponseEntity<Page<OrganizadorResponseDTO>> getAllOrganizadores(
+            @PageableDefault(size = 10, sort = "id") Pageable pageable) {
+        Page<OrganizadorResponseDTO> organizadores = organizadorService.findAll(pageable)
+                .map(organizadorMapper::toResponseDTO);
         return ResponseEntity.ok(organizadores);
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<Organizador> findById(@PathVariable Long id) {
-        Optional<Organizador> organizador = organizadorService.findById(id);
-        if (organizador.isPresent()) {
-            return ResponseEntity.ok(organizador.get());
-        } else {
-            return ResponseEntity.notFound().build();
-        }
+    public ResponseEntity<OrganizadorResponseDTO> getOrganizadorById(@PathVariable Long id) {
+        Organizador organizador = organizadorService.findById(id);
+        return ResponseEntity.ok(organizadorMapper.toResponseDTO(organizador));
     }
 
     @PostMapping
-    public ResponseEntity<?> save(@Valid @RequestBody Organizador organizador) {
-        if (organizadorService.emailExists(organizador.getEmail())) {
-            return ResponseEntity.status(HttpStatus.CONFLICT).body("El email ya esta registrado");
-        }
+    public ResponseEntity<OrganizadorResponseDTO> createOrganizador(
+            @Valid @RequestBody OrganizadorRequestDTO requestDTO) {
+        Organizador organizador = organizadorMapper.toEntity(requestDTO);
         Organizador savedOrganizador = organizadorService.save(organizador);
-        return ResponseEntity.status(HttpStatus.CREATED).body(savedOrganizador);
+        return new ResponseEntity<>(organizadorMapper.toResponseDTO(savedOrganizador), HttpStatus.CREATED);
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<Organizador> update(@PathVariable Long id, @Valid @RequestBody Organizador organizador) {
-        Optional<Organizador> updatedOrganizador = organizadorService.update(id, organizador);
-        if (updatedOrganizador.isPresent()) {
-            return ResponseEntity.ok(updatedOrganizador.get());
-        } else {
-            return ResponseEntity.notFound().build();
-        }
+    public ResponseEntity<OrganizadorResponseDTO> updateOrganizador(
+            @PathVariable Long id,
+            @Valid @RequestBody OrganizadorRequestDTO requestDTO) {
+        Organizador organizador = organizadorMapper.toEntity(requestDTO);
+        Organizador updatedOrganizador = organizadorService.update(id, organizador);
+        return ResponseEntity.ok(organizadorMapper.toResponseDTO(updatedOrganizador));
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> delete(@PathVariable Long id) {
-        if (organizadorService.delete(id)) {
-            return ResponseEntity.noContent().build();
-        } else {
-            return ResponseEntity.notFound().build();
-        }
+    public ResponseEntity<Void> deleteOrganizador(@PathVariable Long id) {
+        organizadorService.deleteById(id);
+        return ResponseEntity.noContent().build();
     }
 
     @GetMapping("/search")
-    public ResponseEntity<List<Organizador>> search(@RequestParam String nombre) {
-        List<Organizador> organizadores = organizadorService.findByNombre(nombre);
+    public ResponseEntity<List<OrganizadorResponseDTO>> searchOrganizadoresByNombre(
+            @RequestParam String nombre) {
+        List<OrganizadorResponseDTO> organizadores = organizadorService.searchByNombre(nombre)
+                .stream()
+                .map(organizadorMapper::toResponseDTO)
+                .collect(Collectors.toList());
         return ResponseEntity.ok(organizadores);
     }
 
     @GetMapping("/{id}/eventos")
-    public ResponseEntity<List<Evento>> getOrganizadorEventos(@PathVariable Long id) {
-        Optional<Organizador> organizador = organizadorService.findById(id);
-        if (organizador.isPresent()) {
-            return ResponseEntity.ok(organizador.get().getEventos());
-        } else {
-            return ResponseEntity.notFound().build();
-        }
+    public ResponseEntity<List<EventoSummaryDTO>> getEventosByOrganizador(@PathVariable Long id) {
+        Organizador organizador = organizadorService.findById(id);
+        List<EventoSummaryDTO> eventos = organizador.getEventos()
+                .stream()
+                .map(eventoMapper::toSummaryDTO)
+                .collect(Collectors.toList());
+        return ResponseEntity.ok(eventos);
     }
 }

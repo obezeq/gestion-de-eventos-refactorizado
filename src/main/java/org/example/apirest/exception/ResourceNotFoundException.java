@@ -9,14 +9,14 @@ public class ResourceNotFoundException extends RuntimeException {
     private final String fieldName;
     private final Object fieldValue;
 
-    private ResourceNotFoundException(final String resourceName, final String fieldName, final Object fieldValue) {
+    public ResourceNotFoundException(final String resourceName, final String fieldName, final Object fieldValue) {
         super(String.format("%s no encontrado con %s: '%s'", resourceName, fieldName, fieldValue));
         this.resourceName = resourceName;
         this.fieldName = fieldName;
         this.fieldValue = fieldValue;
     }
 
-    private ResourceNotFoundException(String message) {
+    public ResourceNotFoundException(String message) {
         super(message);
         this.resourceName = null;
         this.fieldName = null;
