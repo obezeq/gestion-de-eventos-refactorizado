@@ -1,0 +1,26 @@
+package org.example.apirest.exception;
+
+import lombok.Getter;
+
+@Getter
+public class ResourceNotFoundException extends RuntimeException {
+
+    private final String resourceName;
+    private final String fieldName;
+    private final Object fieldValue;
+
+    private ResourceNotFoundException(final String resourceName, final String fieldName, final Object fieldValue) {
+        super(String.format("%s no encontrado con %s: '%s'", resourceName, fieldName, fieldValue));
+        this.resourceName = resourceName;
+        this.fieldName = fieldName;
+        this.fieldValue = fieldValue;
+    }
+
+    private ResourceNotFoundException(String message) {
+        super(message);
+        this.resourceName = null;
+        this.fieldName = null;
+        this.fieldValue = null;
+    }
+
+}
